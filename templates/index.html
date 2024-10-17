@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQLite Database Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.4;
+            font-size: 12px; /* Reduced to about 60% of typical 16px font size */
+        }
+        h1, h2 { color: #333; font-size: 1.6em; }
+        form { margin-bottom: 20px; }
+        select, input[type="submit"] { padding: 5px; margin-right: 10px; font-size: 1em; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 4px; /* Reduced padding for smaller rows */
+            text-align: left;
+        }
+        th { background-color: #f2f2f2; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .pagination { margin-top: 20px; }
+        .pagination a { color: black; float: left; padding: 8px 16px; text-decoration: none; }
+        .pagination a.active { background-color: #4CAF50; color: white; }
+        .pagination a:hover:not(.active) { background-color: #ddd; }
+        .amount { text-align: right; } /* Right-justify amount columns */
+        .where-input {
+            width: 300px;
+            padding: 5px;
+            margin-right: 10px;
+            font-size: 1em;
+        }
+    </style>
+</head>
+<body>
+    <h1>SQLite Database Viewer</h1>
+
+    <form method="post">
+        <label for="table">Select a table:</label>
+        <select name="table" id="table" onchange="this.form.submit()">
+            <option value="">-- Select Table --</option>
+            {% for table in tables %}
+                <option value="{{ table }}" {% if table == selected_table %}selected{% endif %}>{{ table }}</option>
+            {% endfor %}
+        </select>
+    </form>
+
+    {% if selected_table %}
+        <h2>Data from {{ selected_table }}</h2>
+
+        <form method="post">
+            <input type="hidden" name="table" value="{{ selected_table }}">
+            <label for="sort_by">Sort by:</label>
+            <select name="sort_by" id="sort_by">
+                <option value="">-- Select Column --</option>
+                {% for column in columns %}
+                    <option value="{{ column }}" {% if column == sort_by %}selected{% endif %}>{{ column }}</option>
+                {% endfor %}
+            </select>
+            <select name="sort_order" id="sort_order">
+                <option value="asc" {% if sort_order == 'asc' %}selected{% endif %}>Ascending</option>
+                <option value="desc" {% if sort_order == 'desc' %}selected{% endif %}>Descending</option>
+            </select>
+            <br><br>
+            <label for="where_clause">Where:</label>
+            <input type="text" name="where_clause" id="where_clause" class="where-input" value="{{ where_clause }}" placeholder="e.g., CCY1='GBP' or SellAmount>1000000">
+            <input type="submit" value="Apply">
+        </form>
+
+        {% if rows %}
+            <form method="post" action="{{ url_for('download_excel') }}">
+                <input type="hidden" name="table" value="{{ selected_table }}">
+                <input type="hidden" name="sort_by" value="{{ sort_by }}">
+                <input type="hidden" name="sort_order" value="{{ sort_order }}">
+                <input type="hidden" name="where_clause" value="{{ where_clause }}">
+                <input type="submit" value="Download as Excel">
+            </form>
+
+        <table>
+            <thead>
+                <tr>
+                    {% for column in columns %}
+                        <th>{{ column }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                    <tr>
+                        {% for column in columns %}
+                            {% if column in ['BuyAmount', 'SellAmount'] %}
+                                <td class="amount">
+                                    {% if row[column] | float is number %}
+                                        {{ '{:.2f}'.format(row[column] | float) }}
+                                    {% else %}
+                                        {{ row[column] }}
+                                    {% endif %}
+                                </td>
+                            {% else %}
+                                <td>{{ row[column] }}</td>
+                            {% endif %}
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+
+            <div class="pagination">
+                {% for p in range(1, total_pages + 1) %}
+                    <a href="{{ url_for('index', table=selected_table, sort_by=sort_by, sort_order=sort_order, where_clause=where_clause, page=p) }}" {% if p == page %}class="active"{% endif %}>{{ p }}</a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p>No data found in this table.</p>
+        {% endif %}
+    {% endif %}
+</body>
+</html>
